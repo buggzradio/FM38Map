@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Repeater Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 100vh;
+    }
+    .leaflet-tooltip {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Step 1: Initialize the map
+    const map = L.map('map').setView([43.0, -89.0], 7); // Adjust starting position
+
+    // Step 2: Add a tile layer (base map)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Step 3: Fetch repeater data from Google Sheets
+    const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXRBRKJpNyAgevGaqJ11Rm60CDWY3j4lXf8e0WYqT2TwDsBTLEu85AFpQZo4LK6Xgm1WnaGiyWuoox/pub?output=csv';
+    fetch(sheetUrl)
+      .then(response => response.text())
+      .then(csvText => {
+        const rows = csvText.split('\n').slice(1); // Skip header row
+        rows.forEach(row => {
+          const [outputFreq, inputFreq, uplinkTone, downlinkTone, location, lat, lon, call, coverage] = row.split(',');
+          if (location && lat && lon) {
+            const latNum = parseFloat(lat);
+            const lonNum = parseFloat(lon);
+            const coverageNum = coverage ? parseCoverage(coverage) : 1000; // Default to 1000 meters if no coverage
+
+            // Step 4: Add a marker and coverage circle
+            const marker = L.marker([latNum, lonNum]).addTo(map);
+            const circle = L.circle([latNum, lonNum], {
+              color: 'blue',
+              fillColor: '#aaddff',
+              fillOpacity: 0.2,
+              radius: coverageNum
+            }).addTo(map);
+
+            // Step 5: Add hover details
+            marker.bindTooltip(
+              `<strong>${location}</strong><br>
+               Output Freq: ${outputFreq}<br>
+               Input Freq: ${inputFreq}<br>
+               Uplink Tone: ${uplinkTone}<br>
+               Downlink Tone: ${downlinkTone}<br>
+               Call: ${call}<br>
+               Coverage: ${coverage}<br>`,
+              { direction: 'top' }
+            );
+          }
+        });
+      })
+      .catch(error => console.error('Error loading repeater data:', error));
+
+    // Function to convert coverage (miles to meters)
+    function parseCoverage(coverage) {
+      if (coverage.toLowerCase().includes('mi')) {
+        const miles = parseFloat(coverage);
+        return miles * 1609.34; // Convert miles to meters
+      }
+      return 1000; // Default to 1000 meters if coverage is not specified
+    }
+  </script>
+</body>
+</html>
